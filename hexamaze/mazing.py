@@ -47,16 +47,19 @@ def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index):
                 neighbors.append((nq, nr, i))
 
         if neighbors:
+
             nq, nr, direction = random.choice(neighbors)
-            grid[(nq, nr)].visited = True
-            stack.append((nq, nr))
 
-            # Remove wall between current cell and chosen neighbor
-            grid[(q, r)].walls[direction] = False
-            grid[(nq, nr)].walls[(direction + 3) % 6] = False  # Opposite wall
-
-            # Add the cell to the current visited set
-            all_visited_sets[current_set_index].add((nq, nr))
+            if is_valid_move(nq, nr, grid, all_visited_sets, current_set_index):
+                # Proceed with valid neighbor and update the walls and visited set
+                grid[(nq, nr)].visited = True
+                stack.append((nq, nr))
+                grid[(q, r)].walls[direction] = False
+                grid[(nq, nr)].walls[(direction + 3) % 6] = False  # Opposite wall
+                all_visited_sets[current_set_index].add((nq, nr))
+            else:
+                grid[(q, r)].walls[direction] = True
+                neighbors.remove((nq, nr, direction))
         else:
             stack.pop()
 
