@@ -33,6 +33,13 @@ def is_valid_move(q, r, grid, all_visited_sets, current_set_index):
     return False
 
 
+def was_not_visited(q, r, grid, all_visited_sets, current_set_index):
+    for visited_set in all_visited_sets:
+        if (q, r) in visited_set:
+            return False
+    return True
+
+
 def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index):
     stack = [(start_q, start_r)]
     grid[(start_q, start_r)].visited = True
@@ -50,7 +57,7 @@ def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index):
 
             nq, nr, direction = random.choice(neighbors)
 
-            if is_valid_move(nq, nr, grid, all_visited_sets, current_set_index):
+            if was_not_visited(nq, nr, grid, all_visited_sets, current_set_index) :
                 # Proceed with valid neighbor and update the walls and visited set
                 grid[(nq, nr)].visited = True
                 stack.append((nq, nr))
@@ -59,6 +66,7 @@ def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index):
                 all_visited_sets[current_set_index].add((nq, nr))
             else:
                 grid[(q, r)].walls[direction] = True
+                grid[(nq, nr)].walls[(direction + 3) % 6] = True  # Opposite wall
                 neighbors.remove((nq, nr, direction))
         else:
             stack.pop()
@@ -189,7 +197,7 @@ def plot_maze(grid, starts, exits, all_visited_sets, colors):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate intertwined mazes.")
-    parser.add_argument("--size", type=int, default=5, help="Size of the hexagonal grid")
+    parser.add_argument("--size", type=int, default=10, help="Size of the hexagonal grid")
     parser.add_argument("--num_mazes", type=int, default=3, help="Number of intertwined mazes")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for maze generation")
     args = parser.parse_args()
