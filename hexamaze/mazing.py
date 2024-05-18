@@ -69,7 +69,9 @@ def generate_maze(grid, start_q, start_r, current_set_index):
             yield
 
 
-def get_random_border_point(grid, exclude_points=[], current_set=None):
+def get_random_border_point(grid, exclude_points=None, current_set=None):
+    if not exclude_points:
+        exclude_points = []
     border_points = [point for point in grid if
                      len([True for dq, dr in HEX_DIRECTIONS if (point[0] + dq, point[1] + dr) not in grid]) > 0]
     point = None
@@ -83,7 +85,9 @@ def get_random_border_point(grid, exclude_points=[], current_set=None):
     return point
 
 
-def get_random_point_in_set(grid, exclude_points=[], current_set=None):
+def get_random_point_in_set(grid, exclude_points=None, current_set=None):
+    if not exclude_points:
+        exclude_points = []
     points_in_set = [point for point in grid if grid[point].set == current_set and point not in exclude_points]
     return random.choice(points_in_set) if points_in_set else None
 
@@ -214,13 +218,13 @@ def plot_maze(grid, starts, exits, colors, solutions):
     plt.show()
 
 
-def find_solution(grid, start, exit):
+def find_solution(grid, start, grid_exit):
     stack = [(start, [start])]
-    visited = set([start])
+    visited = {start}
 
     while stack:
         (q, r), path = stack.pop()
-        if (q, r) == exit:
+        if (q, r) == grid_exit:
             return path
 
         for dq, dr in HEX_DIRECTIONS:
