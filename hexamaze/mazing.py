@@ -4,18 +4,19 @@ import random
 import argparse
 
 HEX_DIRECTIONS = [
-    (-1, 0), (1, 0), (0, -1), (0, 1), (1, -1), (-1, 1)
+    (+1, 0), (+1, -1), (0, -1), (-1, 0), (-1, +1), (0, +1)
 ]
 
 SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow']
 
 
-SPACING = 2
+SPACING = 1.2
 
 class Cell:
     def __init__(self):
         self.walls = [True] * 6  # Each cell has 6 walls initially
         self.visited = False
+        self.set = None
 
 
 def initialize_hexagon_grid(size):
@@ -28,28 +29,28 @@ def initialize_hexagon_grid(size):
     return grid
 
 
-def is_valid_move(q, r, grid, all_visited_sets, current_set_index):
+def is_valid_move(q, r, grid, current_set_index):
     if (q, r) in grid and not grid[(q, r)].visited:
-        for i, visited_set in enumerate(all_visited_sets):
-            if i != current_set_index and (q, r) in visited_set:
-                return False
+        #if grid[(q, r)].set != current_set_index:
+        #    return False
         return True
     return False
 
 
-def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index, exit_point):
+def generate_maze(grid, start_q, start_r, current_set_index):
     stack = [(start_q, start_r)]
     grid[(start_q, start_r)].visited = True
+    grid[(start_q, start_r)].set = current_set_index
 
     while stack:
         q, r = stack[-1]
-        if (q, r) == exit_point:
-            break
+        #if (q, r) == exit_point:
+        #    break
         neighbors = []
 
         for i, (dq, dr) in enumerate(HEX_DIRECTIONS):
             nq, nr = q + dq, r + dr
-            if is_valid_move(nq, nr, grid, all_visited_sets, current_set_index):
+            if is_valid_move(nq, nr, grid, current_set_index):
                 neighbors.append((nq, nr, i))
 
         if neighbors:
@@ -60,19 +61,25 @@ def generate_maze(grid, start_q, start_r, all_visited_sets, current_set_index, e
             stack.append((nq, nr))
             grid[(q, r)].walls[direction] = False
             grid[(nq, nr)].walls[(direction + 3) % 6] = False  # Opposite wall
-            all_visited_sets[current_set_index].add((nq, nr))
+            print(f'disabled {(q, r)}:{SIDE_COLORS[direction]} and {(nq, nr)}:{SIDE_COLORS[(direction + 3) % 6]}')
+            grid[(nq, nr)].set = current_set_index
         else:
             stack.pop()
 
         yield
 
 
-def get_random_border_point(grid, exclude_points=[]):
+def get_random_border_point(grid, exclude_points=[], current_set=None):
     border_points = [point for point in grid if
                      len([True for dq, dr in HEX_DIRECTIONS if (point[0] + dq, point[1] + dr) not in grid]) > 0]
     point = None
-    while not point or point in exclude_points:
+    wrong_set = True
+    while not point or point in exclude_points or wrong_set:
         point = random.choice(border_points)
+        if current_set is None:
+            wrong_set = False
+        else:
+            wrong_set = (grid[(point[0], point[1])].set != current_set)
     return point
 
 
@@ -88,17 +95,8 @@ def create_intertwined_mazes(size, num_mazes, seed=None):
         start = get_random_border_point(grid, exclude_points=starts)
         starts.append(start)
 
-    # Set of visited cells for each maze to avoid overlap
-    all_visited_sets = [set([start]) for start in starts]
-
-    # Define random exit points within the grid
-    exits = []
-    for _ in range(num_mazes):
-        exit = get_random_border_point(grid, exclude_points=exits)
-        exits.append(exit)
-
     # Initialize maze generators
-    mazes = [generate_maze(grid, start[0], start[1], all_visited_sets, i, exits[i]) for i, start in enumerate(starts)]
+    mazes = [generate_maze(grid, start[0], start[1], i) for i, start in enumerate(starts)]
 
     # Alternate steps between the mazes
     while mazes:
@@ -108,7 +106,13 @@ def create_intertwined_mazes(size, num_mazes, seed=None):
             except StopIteration:
                 mazes.remove(maze)
 
-    return grid, starts, exits, all_visited_sets
+    # Define random exit points within the grid
+    exits = []
+    for i in range(num_mazes):
+        grid_exit = get_random_border_point(grid, exclude_points=exits, current_set=i)
+        exits.append(grid_exit)
+
+    return grid, starts, exits
 
 
 def hsl_to_rgb(h, s, l):
@@ -146,41 +150,40 @@ def get_complementary_colors(seed, num_colors):
     return colors
 
 
-def draw_hex(ax, x_center, y_center, size, color='black', fill_color=None):
+def draw_hex(ax, q, r, x_center, y_center, size, color='black', fill_color=None):
     angles = np.linspace(0, 2 * np.pi, 7)
-    x_hex = x_center + size * np.cos(angles)
-    y_hex = y_center + size * np.sin(angles)
-    #if fill_color:
-    #    ax.fill(x_hex, y_hex, color=fill_color)
-    #ax.plot(x_hex, y_hex, color="lightgray")
+    x_hex = x_center + size * np.cos(angles) * .8
+    y_hex = y_center + size * np.sin(angles) * .8
+    ax.plot(x_hex, y_hex, color="lightgray")
+    if fill_color:
+        ax.fill(x_hex, y_hex, color=fill_color)
+    ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
 
 
-def plot_maze(grid, starts, exits, all_visited_sets, colors, solutions):
+def plot_maze(grid, starts, exits, colors, solutions):
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
 
     size = 1
     for (q, r), cell in grid.items():
         x_center = size * 3 / 2 * q * SPACING
-        y_center = size * np.sqrt(3) * (r + q / 2) * SPACING
-        cell_color = None
-        for i, visited_set in enumerate(all_visited_sets):
-            if (q, r) in visited_set:
-                cell_color = colors[i]
-                break
-        draw_hex(ax, x_center, y_center, size, color='black', fill_color=cell_color)
+        y_center = - size * np.sqrt(3) * (r + q / 2) * SPACING
+        if grid[(q, r)].set is not None:
+            draw_hex(ax, q, r, x_center, y_center, size, color='black', fill_color=colors[grid[(q, r)].set])
+        else:
+            draw_hex(ax, q, r, x_center, y_center, size, color='black')
         for direction, wall in enumerate(cell.walls):
             if wall:
-                x0, y0 = x_center + size * np.cos(np.pi / 3 * ((direction + 1) % 6)), y_center + size * np.sin(
-                    np.pi / 3 * ((direction + 1) % 6))
-                x1, y1 = x_center + size * np.cos(np.pi / 3 * ((direction + 2) % 6)), y_center + size * np.sin(
-                    np.pi / 3 * ((direction + 2) % 6))
+                x0, y0 = x_center + size * np.cos(np.pi / 3 * ((direction - 1) % 6)), y_center + size * np.sin(
+                    np.pi / 3 * ((direction - 1) % 6))
+                x1, y1 = x_center + size * np.cos(np.pi / 3 * ((direction - 0) % 6)), y_center + size * np.sin(
+                    np.pi / 3 * ((direction - 0) % 6))
                 ax.plot([x0, x1], [y0, y1], color=SIDE_COLORS[direction])
 
     # Mark entrances and exits
     def mark_point(ax, q, r, label, color):
         x_center = size * 3 / 2 * q * SPACING
-        y_center = size * np.sqrt(3) * (r + q / 2) * SPACING
+        y_center = - size * np.sqrt(3) * (r + q / 2) * SPACING
         ax.text(x_center, y_center, label, color='gray', ha='center', va='center', fontsize=5, fontweight='bold',
                 bbox=dict(facecolor=color, edgecolor='black', boxstyle='round,pad=0.3'))
 
@@ -193,9 +196,9 @@ def plot_maze(grid, starts, exits, all_visited_sets, colors, solutions):
     for i, solution in enumerate(solutions):
         for (q, r), (nq, nr) in zip(solution, solution[1:]):
             x0 = size * 3 / 2 * q * SPACING
-            y0 = size * np.sqrt(3) * (r + q / 2) * SPACING
+            y0 = - size * np.sqrt(3) * (r + q / 2) * SPACING
             x1 = size * 3 / 2 * nq * SPACING
-            y1 = size * np.sqrt(3) * (nr + nq / 2) * SPACING
+            y1 = - size * np.sqrt(3) * (nr + nq / 2) * SPACING
             ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--') #colors[i]
 
     plt.axis('off')
@@ -224,8 +227,8 @@ def find_solution(grid, start, exit):
 def main():
     parser = argparse.ArgumentParser(description="Generate intertwined mazes.")
     parser.add_argument("--size", type=int, default=5, help="Size of the hexagonal grid")
-    parser.add_argument("--num_mazes", type=int, default=1, help="Number of intertwined mazes")
-    parser.add_argument("--seed", type=int, default=1234, help="Random seed for maze generation")
+    parser.add_argument("--num_mazes", type=int, default=3, help="Number of intertwined mazes")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for maze generation")
     args = parser.parse_args()
 
     size = args.size
@@ -233,9 +236,9 @@ def main():
     seed = args.seed
 
     colors = get_complementary_colors(seed, num_mazes)
-    grid, starts, exits, all_visited_sets = create_intertwined_mazes(size, num_mazes, seed)
+    grid, starts, exits = create_intertwined_mazes(size, num_mazes, seed)
     solutions = [find_solution(grid, start, exit) for start, exit in zip(starts, exits)]
-    plot_maze(grid, starts, exits, all_visited_sets, colors, solutions)
+    plot_maze(grid, starts, exits, colors, solutions)
 
 
 if __name__ == "__main__":
