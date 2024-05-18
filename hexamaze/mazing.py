@@ -46,6 +46,7 @@ def generate_maze(grid, start_q, start_r, current_set_index):
     while stack:
         q, r = stack[-1]
         neighbors = []
+        added = False
 
         for i, (dq, dr) in enumerate(HEX_DIRECTIONS):
             nq, nr = q + dq, r + dr
@@ -61,10 +62,11 @@ def generate_maze(grid, start_q, start_r, current_set_index):
             grid[(q, r)].walls[direction] = False
             grid[(nq, nr)].walls[(direction + 3) % 6] = False  # Opposite wall
             grid[(nq, nr)].set = current_set_index
+            added = True
         else:
             stack.pop()
-
-        yield
+        if added:
+            yield
 
 
 def get_random_border_point(grid, exclude_points=[], current_set=None):
