@@ -212,7 +212,7 @@ def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int,
     return colors
 
 
-def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None):
+def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None, debug=False):
     angles = np.linspace(0, 2 * np.pi, 7)
     x_hex = x_center + size * np.cos(angles) * (1/SPACING)
     y_hex = y_center + size * np.sin(angles) * (1/SPACING)
@@ -220,10 +220,11 @@ def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None):
         ax.plot(x_hex, y_hex, color='lightgray') # noqa -> Color Name is spelled that way
     if fill_color:
         ax.fill(x_hex, y_hex, color=fill_color)
-    ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
+    if debug:
+        ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
 
 
-def plot_maze(grid, starts, exits, colors, solutions):
+def plot_maze(grid, starts, exits, colors, solutions=None, debug=False):
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
 
@@ -232,9 +233,9 @@ def plot_maze(grid, starts, exits, colors, solutions):
         x_center = size * 3 / 2 * q * SPACING
         y_center = - size * np.sqrt(3) * (r + q / 2) * SPACING
         if grid[(q, r)].set is not None:
-            draw_hex(ax, q, r, x_center, y_center, size, fill_color=colors[grid[(q, r)].set])
+            draw_hex(ax, q, r, x_center, y_center, size, fill_color=colors[grid[(q, r)].set],debug=debug)
         else:
-            draw_hex(ax, q, r, x_center, y_center, size)
+            draw_hex(ax, q, r, x_center, y_center, size,debug=debug)
         for direction, wall in enumerate(cell.walls):
             if wall:
                 x0, y0 = x_center + size * np.cos(np.pi / 3 * ((direction - 1) % 6)), y_center + size * np.sin(
@@ -250,9 +251,14 @@ def plot_maze(grid, starts, exits, colors, solutions):
     def mark_point(point_ax, point_q, point_r, label, color):
         point_x_center = size * 3 / 2 * point_q * SPACING
         point_y_center = - size * np.sqrt(3) * (point_r + point_q / 2) * SPACING
-        point_ax.text(point_x_center, point_y_center, label, color='gray', ha='center', va='center', fontsize=5,
+        factor = .8
+        if debug:
+            point_ax.text(point_x_center, point_y_center, label, color='gray', ha='center', va='center', fontsize=7,
                       fontweight='bold',
                       bbox=dict(facecolor=color, edgecolor='black', boxstyle='round,pad=0.3'))
+        else:
+            point_ax.arrow(point_x_center - ((size / 2) * factor), point_y_center - ((size / 2) * factor), size * factor, size * factor, color='grey')
+            point_ax.arrow(point_x_center + ((size / 2) * factor), point_y_center - ((size / 2) * factor), -size * factor, size * factor, color='grey')
 
     labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' # noqa -> Not a word
     for i, (grid_start, grid_exit) in enumerate(zip(starts, exits)):
@@ -260,13 +266,14 @@ def plot_maze(grid, starts, exits, colors, solutions):
         mark_point(ax, grid_exit[0], grid_exit[1], labels[i], colors[i])
 
     # Draw solution paths
-    for i, solution in enumerate(solutions):
-        for (q, r), (nq, nr) in zip(solution, solution[1:]):
-            x0 = size * 3 / 2 * q * SPACING
-            y0 = - size * np.sqrt(3) * (r + q / 2) * SPACING
-            x1 = size * 3 / 2 * nq * SPACING
-            y1 = - size * np.sqrt(3) * (nr + nq / 2) * SPACING
-            ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--')
+    if solutions:
+        for i, solution in enumerate(solutions):
+            for (q, r), (nq, nr) in zip(solution, solution[1:]):
+                x0 = size * 3 / 2 * q * SPACING
+                y0 = - size * np.sqrt(3) * (r + q / 2) * SPACING
+                x1 = size * 3 / 2 * nq * SPACING
+                y1 = - size * np.sqrt(3) * (nr + nq / 2) * SPACING
+                ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--')
 
     plt.axis('off')
     plt.show()
@@ -296,11 +303,15 @@ def main():
     parser.add_argument("--size", type=int, default=10, help="Size of the hexagonal grid")
     parser.add_argument("--num_mazes", type=int, default=3, help="Number of intertwined mazes")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for maze generation")
+    parser.add_argument("--debug", action='store_true', help="Adds some debug output")
     args = parser.parse_args()
 
     size = args.size
     num_mazes = args.num_mazes
     seed = args.seed
+    debug = args.debug
+
+    solutions = None
 
     if seed is None:
         seed = random.randrange(0, 2 ** 32)
@@ -308,8 +319,9 @@ def main():
 
     colors = get_complementary_colors(seed, num_mazes)
     grid, starts, exits = create_intertwined_mazes(size, num_mazes, seed)
-    solutions = [find_solution(grid, grid_start, grid_exit) for grid_start, grid_exit in zip(starts, exits)]
-    plot_maze(grid, starts, exits, colors, solutions)
+    if debug:
+        solutions = [find_solution(grid, grid_start, grid_exit) for grid_start, grid_exit in zip(starts, exits)]
+    plot_maze(grid, starts, exits, colors, solutions, debug)
 
 
 if __name__ == "__main__":
