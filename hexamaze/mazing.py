@@ -166,28 +166,27 @@ def create_intertwined_mazes(size, num_mazes, seed=None):
     return grid, starts, exits
 
 
-def hsl_to_rgb(hue, saturation, lightness):
+def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> Tuple[float, float, float]:
+    """
+    Convert a color from HSL (Hue, Saturation, Lightness) format to RGB (Red, Green, Blue) format.
+
+    Args:
+        hue (float): The hue component of the color (0-360).
+        saturation (float): The saturation of the color (0-1).
+        lightness (float): The lightness of the color (0-1).
+
+    Returns:
+        Tuple[float, float, float]: RGB components of the color scaled between 0 and 1.
+    """
     c = (1 - abs(2 * lightness - 1)) * saturation
     x = c * (1 - abs((hue / 60) % 2 - 1))
     m = lightness - c / 2
 
-    if 0 <= hue < 60:
-        red, green, blue = c, x, 0
-    elif 60 <= hue < 120:
-        red, green, blue = x, c, 0
-    elif 120 <= hue < 180:
-        red, green, blue = 0, c, x
-    elif 180 <= hue < 240:
-        red, green, blue = 0, x, c
-    elif 240 <= hue < 300:
-        red, green, blue = x, 0, c
-    else:
-        red, green, blue = c, 0, x
+    hue_sector = int(hue // 60) % 6
+    rgb_order = [(c, x, 0), (x, c, 0), (0, c, x), (0, x, c), (x, 0, c), (c, 0, x)]
+    red, green, blue = rgb_order[hue_sector]
 
-    red = (red + m)
-    green = (green + m)
-    blue = (blue + m)
-    return red, green, blue
+    return red + m, green + m, blue + m
 
 
 def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int, int]]:
@@ -202,12 +201,12 @@ def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int,
         List[Tuple[int, int, int]]: A list of RGB color tuples, each representing a complementary color.
     """
     random.seed(seed)
-    hue = random.randint(0, 360)
-    saturation, lightness = 0.7, 0.5
+    hue_start = random.randint(0, 360)
+    saturation, lightness = .70, .50
     colors = []
     
     for i in range(num_colors):
-        hue = (hue + (i * (360 // num_colors))) % 360
+        hue = (hue_start + (i * (360 // num_colors))) % 360
         colors.append(hsl_to_rgb(hue, saturation, lightness))
     
     return colors
