@@ -1,3 +1,6 @@
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Tuple
+from collections.abc import Generator
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -9,20 +12,38 @@ HEX_DIRECTIONS = [
 ]
 
 # Colors for sides
-SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow']
+SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow'] 
 
 # Spacing between hexagons
 SPACING = 1
 
 
+@dataclass
 class Cell:
-    def __init__(self):
-        self.walls = [True] * 6  # Each cell has 6 walls initially
-        self.visited = False
-        self.set = None
+    """
+    Represents a single hexagonal cell in a maze.
+    
+    Attributes:
+        walls (List[bool]): A list of six boolean values indicating the presence of walls.
+        visited (bool): Indicates whether the cell has been visited.
+        set (Optional[str]): An optional identifier to group cells.
+    """
+    walls: List[bool] = field(default_factory=lambda: [True] * 6)
+    visited: bool = False
+    set: Optional[str] = None
 
 
-def initialize_hexagon_grid(size):
+def initialize_hexagon_grid(size: int) -> Dict[tuple, Cell]:
+    """
+    Create a hexagonal grid of cells.
+
+    Args:
+    - size: An integer defining the radius of the hexagon grid.
+
+    Returns:
+    - A dictionary where each key is a tuple representing the coordinates (q, r) of a cell in the hexagonal grid,
+      and each value is an instance of the Cell class.
+    """
     grid = {}
     for q in range(-size, size + 1):
         r1 = max(-size, -q - size)
@@ -32,13 +53,34 @@ def initialize_hexagon_grid(size):
     return grid
 
 
-def is_valid_move(q, r, grid):
-    if (q, r) in grid and not grid[(q, r)].visited:
-        return True
-    return False
+def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell]) -> bool:
+    """
+    Check if a move to a specified cell in a hexagonal grid is valid based on the cell's presence in the grid and its visited status.
+
+    Args:
+        q (int): The q-coordinate of the cell in the hexagonal grid.
+        r (int): The r-coordinate of the cell in the hexagonal grid.
+        grid (Dict[tuple, Cell]): A dictionary representing the hexagonal grid where keys are coordinate tuples (q, r) and values are Cell instances.
+
+    Returns:
+        bool: True if the move to the cell is valid, False otherwise.
+    """
+    return (q, r) in grid and not grid[(q, r)].visited
 
 
-def generate_maze(grid, start_q, start_r, current_set_index):
+def generate_maze(grid: Dict[Tuple[int, int], Cell], start_q: int, start_r: int, current_set_index: int) -> Generator[None, None, None]:
+    """
+    Generate a maze on a hexagonal grid using depth-first search algorithm.
+
+    Args:
+    - grid: A dictionary representing the hexagonal grid.
+    - start_q: The q-coordinate of the starting cell.
+    - start_r: The r-coordinate of the starting cell.
+    - current_set_index: An identifier for the current path or set in the maze.
+
+    Yields:
+    - None
+    """
     stack = [(start_q, start_r)]
     grid[(start_q, start_r)].visited = True
     grid[(start_q, start_r)].set = current_set_index
@@ -130,32 +172,44 @@ def hsl_to_rgb(hue, saturation, lightness):
     m = lightness - c / 2
 
     if 0 <= hue < 60:
-        r, g, b = c, x, 0
+        red, green, blue = c, x, 0
     elif 60 <= hue < 120:
-        r, g, b = x, c, 0
+        red, green, blue = x, c, 0
     elif 120 <= hue < 180:
-        r, g, b = 0, c, x
+        red, green, blue = 0, c, x
     elif 180 <= hue < 240:
-        r, g, b = 0, x, c
+        red, green, blue = 0, x, c
     elif 240 <= hue < 300:
-        r, g, b = x, 0, c
+        red, green, blue = x, 0, c
     else:
-        r, g, b = c, 0, x
+        red, green, blue = c, 0, x
 
-    r = (r + m)
-    g = (g + m)
-    b = (b + m)
-    return r, g, b
+    red = (red + m)
+    green = (green + m)
+    blue = (blue + m)
+    return red, green, blue
 
 
-def get_complementary_colors(seed, num_colors):
+def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int, int]]:
+    """
+    Generates a list of RGB color values that are evenly spaced around the color wheel.
+
+    Args:
+        seed (int): An integer to initialize the random number generator for reproducibility.
+        num_colors (int): The number of complementary colors to generate.
+
+    Returns:
+        List[Tuple[int, int, int]]: A list of RGB color tuples, each representing a complementary color.
+    """
     random.seed(seed)
     hue = random.randint(0, 360)
     saturation, lightness = 0.7, 0.5
     colors = []
+    
     for i in range(num_colors):
         hue = (hue + (i * (360 // num_colors))) % 360
         colors.append(hsl_to_rgb(hue, saturation, lightness))
+    
     return colors
 
 
@@ -164,7 +218,7 @@ def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None):
     x_hex = x_center + size * np.cos(angles) * (1/SPACING)
     y_hex = y_center + size * np.sin(angles) * (1/SPACING)
     if SPACING > 1:
-        ax.plot(x_hex, y_hex, color='lightgray')
+        ax.plot(x_hex, y_hex, color='lightgray') # noqa -> Color Name is spelled that way
     if fill_color:
         ax.fill(x_hex, y_hex, color=fill_color)
     ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
@@ -201,7 +255,7 @@ def plot_maze(grid, starts, exits, colors, solutions):
                       fontweight='bold',
                       bbox=dict(facecolor=color, edgecolor='black', boxstyle='round,pad=0.3'))
 
-    labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' # noqa -> Not a word
     for i, (grid_start, grid_exit) in enumerate(zip(starts, exits)):
         mark_point(ax, grid_start[0], grid_start[1], labels[i], colors[i])
         mark_point(ax, grid_exit[0], grid_exit[1], labels[i], colors[i])
