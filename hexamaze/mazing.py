@@ -33,6 +33,52 @@ class Cell:
     set: Optional[str] = None
 
 
+"""
+Create a set of intertwined mazes on a hexagonal grid.
+
+Args:
+- size: An integer defining the radius of the hexagon grid.
+- num_mazes: An integer specifying the number of mazes to generate.
+- seed: An optional integer seed for random number generation.
+
+Returns:
+- A tuple containing:
+    - A dictionary representing the hexagonal grid with maze cells.
+    - A list of starting points for each maze.
+    - A list of exit points for each maze.
+"""
+def create_intertwined_mazes(size: int, num_mazes:int, seed: int=None):
+    if seed is not None:
+        random.seed(seed)
+
+    grid = initialize_hexagon_grid(size)
+
+    # Define random starting points on the border of the maze
+    starts = []
+    for _ in range(num_mazes):
+        start = get_random_border_point(grid, exclude_points=starts)
+        starts.append(start)
+
+    # Initialize maze generators
+    mazes = [generate_maze(grid, start[0], start[1], i) for i, start in enumerate(starts)]
+
+    # Alternate steps between the mazes
+    while mazes:
+        for i, maze in enumerate(mazes[:]):
+            try:
+                next(maze)
+            except StopIteration:
+                mazes.remove(maze)
+
+    # Define random exit points within the sets, excluding start points
+    exits = []
+    for i in range(num_mazes):
+        exit_point = get_random_point_in_set(grid, exclude_points=[starts[i]], current_set=i)
+        exits.append(exit_point)
+
+    return grid, starts, exits
+
+
 def initialize_hexagon_grid(size: int) -> Dict[tuple, Cell]:
     """
     Create a hexagonal grid of cells.
@@ -51,21 +97,6 @@ def initialize_hexagon_grid(size: int) -> Dict[tuple, Cell]:
         for r in range(r1, r2 + 1):
             grid[(q, r)] = Cell()
     return grid
-
-
-def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell]) -> bool:
-    """
-    Check if a move to a specified cell in a hexagonal grid is valid based on the cell's presence in the grid and its visited status.
-
-    Args:
-        q (int): The q-coordinate of the cell in the hexagonal grid.
-        r (int): The r-coordinate of the cell in the hexagonal grid.
-        grid (Dict[tuple, Cell]): A dictionary representing the hexagonal grid where keys are coordinate tuples (q, r) and values are Cell instances.
-
-    Returns:
-        bool: True if the move to the cell is valid, False otherwise.
-    """
-    return (q, r) in grid and not grid[(q, r)].visited
 
 
 def generate_maze(grid: Dict[Tuple[int, int], Cell], start_q: int, start_r: int, current_set_index: int) -> Generator[None, None, None]:
@@ -111,6 +142,21 @@ def generate_maze(grid: Dict[Tuple[int, int], Cell], start_q: int, start_r: int,
             yield
 
 
+def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell]) -> bool:
+    """
+    Check if a move to a specified cell in a hexagonal grid is valid based on the cell's presence in the grid and its visited status.
+
+    Args:
+        q (int): The q-coordinate of the cell in the hexagonal grid.
+        r (int): The r-coordinate of the cell in the hexagonal grid.
+        grid (Dict[tuple, Cell]): A dictionary representing the hexagonal grid where keys are coordinate tuples (q, r) and values are Cell instances.
+
+    Returns:
+        bool: True if the move to the cell is valid, False otherwise.
+    """
+    return (q, r) in grid and not grid[(q, r)].visited
+
+
 def get_random_border_point(grid, exclude_points=None, current_set=None):
     if not exclude_points:
         exclude_points = []
@@ -132,61 +178,6 @@ def get_random_point_in_set(grid, exclude_points=None, current_set=None):
         exclude_points = []
     points_in_set = [point for point in grid if grid[point].set == current_set and point not in exclude_points]
     return random.choice(points_in_set) if points_in_set else None
-
-
-def create_intertwined_mazes(size, num_mazes, seed=None):
-    if seed is not None:
-        random.seed(seed)
-
-    grid = initialize_hexagon_grid(size)
-
-    # Define random starting points on the border of the maze
-    starts = []
-    for _ in range(num_mazes):
-        start = get_random_border_point(grid, exclude_points=starts)
-        starts.append(start)
-
-    # Initialize maze generators
-    mazes = [generate_maze(grid, start[0], start[1], i) for i, start in enumerate(starts)]
-
-    # Alternate steps between the mazes
-    while mazes:
-        for i, maze in enumerate(mazes[:]):
-            try:
-                next(maze)
-            except StopIteration:
-                mazes.remove(maze)
-
-    # Define random exit points within the sets, excluding start points
-    exits = []
-    for i in range(num_mazes):
-        exit_point = get_random_point_in_set(grid, exclude_points=[starts[i]], current_set=i)
-        exits.append(exit_point)
-
-    return grid, starts, exits
-
-
-def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> Tuple[float, float, float]:
-    """
-    Convert a color from HSL (Hue, Saturation, Lightness) format to RGB (Red, Green, Blue) format.
-
-    Args:
-        hue (float): The hue component of the color (0-360).
-        saturation (float): The saturation of the color (0-1).
-        lightness (float): The lightness of the color (0-1).
-
-    Returns:
-        Tuple[float, float, float]: RGB components of the color scaled between 0 and 1.
-    """
-    c = (1 - abs(2 * lightness - 1)) * saturation
-    x = c * (1 - abs((hue / 60) % 2 - 1))
-    m = lightness - c / 2
-
-    hue_sector = int(hue // 60) % 6
-    rgb_order = [(c, x, 0), (x, c, 0), (0, c, x), (0, x, c), (x, 0, c), (c, 0, x)]
-    red, green, blue = rgb_order[hue_sector]
-
-    return red + m, green + m, blue + m
 
 
 def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int, int]]:
@@ -212,16 +203,27 @@ def get_complementary_colors(seed: int, num_colors: int) -> List[Tuple[int, int,
     return colors
 
 
-def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None, debug=False):
-    angles = np.linspace(0, 2 * np.pi, 7)
-    x_hex = x_center + size * np.cos(angles) * (1/SPACING)
-    y_hex = y_center + size * np.sin(angles) * (1/SPACING)
-    if SPACING > 1:
-        ax.plot(x_hex, y_hex, color='lightgray') # noqa -> Color Name is spelled that way
-    if fill_color:
-        ax.fill(x_hex, y_hex, color=fill_color)
-    if debug:
-        ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
+def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> Tuple[float, float, float]:
+    """
+    Convert a color from HSL (Hue, Saturation, Lightness) format to RGB (Red, Green, Blue) format.
+
+    Args:
+        hue (float): The hue component of the color (0-360).
+        saturation (float): The saturation of the color (0-1).
+        lightness (float): The lightness of the color (0-1).
+
+    Returns:
+        Tuple[float, float, float]: RGB components of the color scaled between 0 and 1.
+    """
+    c = (1 - abs(2 * lightness - 1)) * saturation
+    x = c * (1 - abs((hue / 60) % 2 - 1))
+    m = lightness - c / 2
+
+    hue_sector = int(hue // 60) % 6
+    rgb_order = [(c, x, 0), (x, c, 0), (0, c, x), (0, x, c), (x, 0, c), (c, 0, x)]
+    red, green, blue = rgb_order[hue_sector]
+
+    return red + m, green + m, blue + m
 
 
 def plot_maze(grid, starts, exits, colors, solutions=None, debug=False):
@@ -277,6 +279,18 @@ def plot_maze(grid, starts, exits, colors, solutions=None, debug=False):
 
     plt.axis('off')
     plt.show()
+
+
+def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None, debug=False):
+    angles = np.linspace(0, 2 * np.pi, 7)
+    x_hex = x_center + size * np.cos(angles) * (1/SPACING)
+    y_hex = y_center + size * np.sin(angles) * (1/SPACING)
+    if SPACING > 1:
+        ax.plot(x_hex, y_hex, color='lightgray') # noqa -> Color Name is spelled that way
+    if fill_color:
+        ax.fill(x_hex, y_hex, color=fill_color)
+    if debug:
+        ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
 
 
 def find_solution(grid, grid_start, grid_exit):
