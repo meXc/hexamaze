@@ -141,7 +141,8 @@ def generate_maze(grid: Dict[HexCoordinates, Cell], current_set_index: int) -> G
     
 
     while stack:
-        hex_coords, depth = stack[-1]
+        stack_index = random.randrange(len(stack))
+        hex_coords, depth =  stack[stack_index]
         neighbors = []
         added = False
 
@@ -165,7 +166,7 @@ def generate_maze(grid: Dict[HexCoordinates, Cell], current_set_index: int) -> G
             if stack_max and depth > stack_max[1]:
                 stack_max = (hex_coords, depth)
                 grid.exits[current_set_index] = hex_coords
-            stack.pop()
+            stack.pop(stack_index)
         if added:
             yield
 
