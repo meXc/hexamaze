@@ -29,7 +29,6 @@ class Cell:
         set (Optional[str]): An optional identifier to group cells.
     """
     walls: List[bool] = field(default_factory=lambda: [True] * 6)
-    visited: bool = False
     set: Optional[str] = None
 
 
@@ -123,7 +122,7 @@ def generate_maze(grid: Dict[Tuple[int, int], Cell], start_q: int, start_r: int,
 
         for i, (dq, dr) in enumerate(HEX_DIRECTIONS):
             nq, nr = q + dq, r + dr
-            if is_valid_move(nq, nr, grid):
+            if is_valid_move(nq, nr, grid, current_set_index):
                 neighbors.append((nq, nr, i))
 
         if neighbors:
@@ -142,7 +141,7 @@ def generate_maze(grid: Dict[Tuple[int, int], Cell], start_q: int, start_r: int,
             yield
 
 
-def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell]) -> bool:
+def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell], set: int) -> bool:
     """
     Check if a move to a specified cell in a hexagonal grid is valid based on the cell's presence in the grid and its visited status.
 
@@ -154,7 +153,7 @@ def is_valid_move(q: int, r: int, grid: Dict[tuple, Cell]) -> bool:
     Returns:
         bool: True if the move to the cell is valid, False otherwise.
     """
-    return (q, r) in grid and not grid[(q, r)].visited
+    return (q, r) in grid and (grid[(q, r)].set is None)
 
 
 def get_random_border_point(grid, exclude_points=None, current_set=None):
@@ -293,7 +292,18 @@ def draw_hex(ax, q, r, x_center, y_center, size, fill_color=None, debug=False):
         ax.text(x_center, y_center, f'{q},{r}', color='gray', ha='center', va='center', fontsize=5)
 
 
-def find_solution(grid, grid_start, grid_exit):
+def find_solution(grid: Dict[Tuple[int, int], Cell], grid_start: Tuple[int, int], grid_exit: Tuple[int, int]) -> List[Tuple[int, int]]:
+    """
+    Find a path from grid_start to grid_exit in a hexagonal grid maze.
+
+    Args:
+        grid: A dictionary representing the hexagonal grid.
+        grid_start: Starting point coordinates.
+        grid_exit: Exit point coordinates.
+
+    Returns:
+        List of tuples representing the path from grid_start to grid_exit. Empty list if no path is found.
+    """
     stack = [(grid_start, [grid_start])]
     visited = {grid_start}
 
