@@ -27,40 +27,45 @@ class HexCoordinates(NamedTuple):
     q: int
     r: int
 
+
 class ScreenCoordinates(NamedTuple):
     x: int
     y: int
+
 
 class RGBColor(NamedTuple):
     red: int
     green: int
     blue: int
 
+
 @dataclass
 class Grid:
-    starts : Dict[int, HexCoordinates] = field(default_factory=dict)
-    exits : Dict[int, HexCoordinates] = field(default_factory=dict)
-    cells : Dict[HexCoordinates, Cell] = field(default_factory=dict)
+    starts: Dict[int, HexCoordinates] = field(default_factory=dict)
+    exits: Dict[int, HexCoordinates] = field(default_factory=dict)
+    cells: Dict[HexCoordinates, Cell] = field(default_factory=dict)
 
     def __getitem__(self, index):
         return self.cells[index]
-    
+
     def __setitem__(self, index, value):
         self.cells[index] = value
 
     def __iter__(self):
         return iter(self.cells)
-    
+
     def items(self):
         return self.cells.items()
 
+
 # Hexagonal directions
 HEX_DIRECTIONS = [
-    HexCoordinates(+1, 0), HexCoordinates(+1, -1), HexCoordinates(0, -1), HexCoordinates(-1, 0), HexCoordinates(-1, +1), HexCoordinates(0, +1)
+    HexCoordinates(+1, 0), HexCoordinates(+1, -1), HexCoordinates(0, -1), HexCoordinates(-1, 0), HexCoordinates(-1, +1),
+    HexCoordinates(0, +1)
 ]
 
 # Colors for sides
-SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow']     
+SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow']
 
 """
 Create a set of intertwined mazes on a hexagonal grid.
@@ -76,7 +81,9 @@ Returns:
     - A list of starting points for each maze.
     - A list of exit points for each maze.
 """
-def create_intertwined_mazes(size: int, num_mazes:int, seed: int=None):
+
+
+def create_intertwined_mazes(size: int, num_mazes: int, seed: int = None):
     if seed is not None:
         random.seed(seed)
 
@@ -102,7 +109,7 @@ def create_intertwined_mazes(size: int, num_mazes:int, seed: int=None):
     return grid
 
 
-def initialize_hexagon_grid(size: int) -> Dict[HexCoordinates, Cell]:
+def initialize_hexagon_grid(size: int) -> Grid:
     """
     Create a hexagonal grid of cells.
 
@@ -122,7 +129,7 @@ def initialize_hexagon_grid(size: int) -> Dict[HexCoordinates, Cell]:
     return grid
 
 
-def generate_maze(grid: Dict[HexCoordinates, Cell], current_set_index: int) -> Generator[None, None, None]:
+def generate_maze(grid: Grid, current_set_index: int) -> Generator[None, None, None]:
     """
     Generate a maze on a hexagonal grid using depth-first search algorithm.
 
@@ -138,59 +145,60 @@ def generate_maze(grid: Dict[HexCoordinates, Cell], current_set_index: int) -> G
     stack = [(start_cell, 0)]
     grid[start_cell].set = current_set_index
     stack_max = (start_cell, 0)
-    
 
     while stack:
         stack_index = random.randrange(len(stack))
-        hex_coords, depth =  stack[stack_index]
+        hex_coordinates, depth = stack[stack_index]
         neighbors = []
         added = False
 
         for i, hex_direction in enumerate(HEX_DIRECTIONS):
-            coords_neighbour = HexCoordinates(hex_coords.q + hex_direction.q, hex_coords.r + hex_direction.r)
-            if is_valid_move(coords_neighbour, grid, current_set_index):
-                neighbors.append((coords_neighbour, i))
+            coordinates_neighbour = HexCoordinates(
+                hex_coordinates.q + hex_direction.q, hex_coordinates.r + hex_direction.r)
+            if is_valid_move(coordinates_neighbour, grid):
+                neighbors.append((coordinates_neighbour, i))
 
         if neighbors:
-            coords_neighbour, direction = random.choice(neighbors)
-            if not grid[coords_neighbour].set is None:
+            coordinates_neighbour, direction = random.choice(neighbors)
+            if not grid[coordinates_neighbour].set is None:
                 continue
 
             # Proceed with valid neighbor and update the walls and visited set
-            stack.append((coords_neighbour, depth + 1))
-            grid[hex_coords].walls[direction] = False
-            grid[coords_neighbour].walls[(direction + 3) % 6] = False  # Opposite wall
-            grid[coords_neighbour].set = current_set_index
+            stack.append((coordinates_neighbour, depth + 1))
+            grid[hex_coordinates].walls[direction] = False
+            grid[coordinates_neighbour].walls[(direction + 3) % 6] = False  # Opposite wall
+            grid[coordinates_neighbour].set = current_set_index
             added = True
         else:
             if stack_max and depth > stack_max[1]:
-                stack_max = (hex_coords, depth)
-                grid.exits[current_set_index] = hex_coords
+                stack_max = (hex_coordinates, depth)
+                grid.exits[current_set_index] = hex_coordinates
             stack.pop(stack_index)
         if added:
             yield
 
 
-def is_valid_move(hex_coords: HexCoordinates, grid: Dict[HexCoordinates, Cell], set: int) -> bool:
+def is_valid_move(hex_coordinates: HexCoordinates, grid: Grid) -> bool:
     """
-    Check if a move to a specified cell in a hexagonal grid is valid based on the cell's presence in the grid and its visited status.
+    Check if a move to a specified cell in a hexagonal grid is valid
+    based on the cell's presence in the grid and its visited status.
 
     Args:
-        q (int): The q-coordinate of the cell in the hexagonal grid.
-        r (int): The r-coordinate of the cell in the hexagonal grid.
-        grid (Dict[Coordinates, Cell]): A dictionary representing the hexagonal grid where keys are coordinate tuples (q, r) and values are Cell instances.
+        hex_coordinates: The coordinate of the cell in the hexagonal grid.
+        grid : A hexagonal grid where keys are coordinates tuples (q, r) and values are Cell instances.
 
     Returns:
         bool: True if the move to the cell is valid, False otherwise.
     """
-    return hex_coords in grid and (grid[hex_coords].set is None)
+    return hex_coordinates in grid and (grid[hex_coordinates].set is None)
 
 
 def get_random_border_point(grid, exclude_points=None):
     if not exclude_points:
         exclude_points = []
     border_points = [point for point in grid if
-                     len([True for hex_direction in HEX_DIRECTIONS if HexCoordinates(point.q + hex_direction.q, point.r + hex_direction.r) not in grid]) > 0]
+                     len([True for hex_direction in HEX_DIRECTIONS if
+                          HexCoordinates(point.q + hex_direction.q, point.r + hex_direction.r) not in grid]) > 0]
     point = None
 
     while not point or point in exclude_points:
@@ -220,11 +228,11 @@ def get_complementary_colors(seed: int, num_colors: int) -> List[RGBColor]:
     hue_start = random.randint(0, 360)
     saturation, lightness = .70, .50
     colors = []
-    
+
     for i in range(num_colors):
         hue = (hue_start + (i * (360 // num_colors))) % 360
         colors.append(hsl_to_rgb(hue, saturation, lightness))
-    
+
     return colors
 
 
@@ -248,7 +256,7 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
     rgb_order = [(c, x, 0), (x, c, 0), (0, c, x), (0, x, c), (x, 0, c), (c, 0, x)]
     red, green, blue = rgb_order[hue_sector]
 
-    return red + m, green + m, blue + m
+    return RGBColor(red + m, green + m, blue + m)
 
 
 def plot_maze(grid, colors, solutions=None, debug=False):
@@ -256,17 +264,22 @@ def plot_maze(grid, colors, solutions=None, debug=False):
     ax.set_aspect('equal')
 
     size = 1
-    for hex_coords, cell in grid.items():
-        screen_coords : ScreenCoordinates = ScreenCoordinates(size * 3 / 2 * hex_coords.q * SPACING, - size * np.sqrt(3) * (hex_coords.r + hex_coords.q / 2) * SPACING)
-        if grid[hex_coords].set is not None:
-            draw_hex(ax, hex_coords, screen_coords, size, fill_color=colors[grid[hex_coords].set],debug=debug)
+    for hex_coordinates, cell in grid.items():
+        screen_coordinates: ScreenCoordinates = ScreenCoordinates(
+            size * 3 / 2 * hex_coordinates.q * SPACING,
+            - size * np.sqrt(3) * (hex_coordinates.r + hex_coordinates.q / 2) * SPACING)
+        if grid[hex_coordinates].set is not None:
+            draw_hex(ax, hex_coordinates, screen_coordinates, size,
+                     fill_color=colors[grid[hex_coordinates].set], debug=debug)
         else:
-            draw_hex(ax, hex_coords, screen_coords, size,debug=debug)
+            draw_hex(ax, hex_coordinates, screen_coordinates, size, debug=debug)
         for direction, wall in enumerate(cell.walls):
             if wall:
-                x0, y0 = screen_coords.x + size * np.cos(np.pi / 3 * ((direction - 1) % 6)), screen_coords.y + size * np.sin(
+                x0, y0 = screen_coordinates.x + size * np.cos(
+                    np.pi / 3 * ((direction - 1) % 6)), screen_coordinates.y + size * np.sin(
                     np.pi / 3 * ((direction - 1) % 6))
-                x1, y1 = screen_coords.x + size * np.cos(np.pi / 3 * ((direction - 0) % 6)), screen_coords.y + size * np.sin(
+                x1, y1 = screen_coordinates.x + size * np.cos(
+                    np.pi / 3 * ((direction - 0) % 6)), screen_coordinates.y + size * np.sin(
                     np.pi / 3 * ((direction - 0) % 6))
                 if SPACING > 1:
                     ax.plot([x0, x1], [y0, y1], color=SIDE_COLORS[direction])
@@ -275,17 +288,20 @@ def plot_maze(grid, colors, solutions=None, debug=False):
 
     # Mark entrances and exits
     def mark_point(axis, point, label, color):
-        point_center = ScreenCoordinates(size * 3 / 2 * point.q * SPACING, - size * np.sqrt(3) * (point.r + point.q / 2) * SPACING)
+        point_center = ScreenCoordinates(size * 3 / 2 * point.q * SPACING,
+                                         - size * np.sqrt(3) * (point.r + point.q / 2) * SPACING)
         factor = .8
         if debug:
             axis.text(*point_center, label, color='gray', ha='center', va='center', fontsize=7,
                       fontweight='bold',
                       bbox=dict(facecolor=color, edgecolor='black', boxstyle='round,pad=0.3'))
         else:
-            axis.arrow(point_center.x - ((size / 2) * factor), point_center.y - ((size / 2) * factor), size * factor, size * factor, color='grey')
-            axis.arrow(point_center.x + ((size / 2) * factor), point_center.y - ((size / 2) * factor), -size * factor, size * factor, color='grey')
+            axis.arrow(point_center.x - ((size / 2) * factor), point_center.y - ((size / 2) * factor), size * factor,
+                       size * factor, color='grey')
+            axis.arrow(point_center.x + ((size / 2) * factor), point_center.y - ((size / 2) * factor), -size * factor,
+                       size * factor, color='grey')
 
-    labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' # noqa -> Not a word
+    labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # noqa -> Not a word
     for i, grid_start in grid.starts.items():
         mark_point(ax, grid_start, f'{labels[i]}->', colors[i])
 
@@ -295,9 +311,9 @@ def plot_maze(grid, colors, solutions=None, debug=False):
     # Draw solution paths
     if solutions:
         for i, solution in enumerate(solutions):
-            for hex_coords, hex_next in zip(solution, solution[1:]):
-                x0 = size * 3 / 2 * hex_coords.q * SPACING
-                y0 = - size * np.sqrt(3) * (hex_coords.r + hex_coords.q / 2) * SPACING
+            for hex_coordinates, hex_next in zip(solution, solution[1:]):
+                x0 = size * 3 / 2 * hex_coordinates.q * SPACING
+                y0 = - size * np.sqrt(3) * (hex_coordinates.r + hex_coordinates.q / 2) * SPACING
                 x1 = size * 3 / 2 * hex_next.q * SPACING
                 y1 = - size * np.sqrt(3) * (hex_next.r + hex_next.q / 2) * SPACING
                 ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--')
@@ -306,29 +322,32 @@ def plot_maze(grid, colors, solutions=None, debug=False):
     plt.show()
 
 
-def draw_hex(axis, coords: HexCoordinates, screen_coords: ScreenCoordinates, size, fill_color=None, debug=False):
+def draw_hex(axis, coordinates: HexCoordinates, screen_coordinates: ScreenCoordinates,
+             size, fill_color=None, debug=False):
     """
     Draw a hexagon on a matplotlib axis.
 
     Parameters:
     - ax: The matplotlib axis on which the hexagon will be drawn.
-    - coords: The axial coordinates of the hexagon, used for debugging text.
-    - screen_coords: The x and y coordinates for the center of the hexagon.
+    - coordinates: The axial coordinates of the hexagon, used for debugging text.
+    - screen_coordinates: The x and y coordinates for the center of the hexagon.
     - size: The radius of the hexagon.
     - fill_color: Optional. The color used to fill the hexagon.
     - debug: Optional. If True, displays the axial coordinates on the hexagon.
     """
     angles = np.linspace(0, 2 * np.pi, 7)
-    coord_hex = ScreenCoordinates(screen_coords.x + size * np.cos(angles) * (1/SPACING), screen_coords.y + size * np.sin(angles) * (1/SPACING))
+    coord_hex = ScreenCoordinates(screen_coordinates.x + size * np.cos(angles) * (1 / SPACING),
+                                  screen_coordinates.y + size * np.sin(angles) * (1 / SPACING))
     if SPACING > 1:
-        axis.plot(*coord_hex, color='lightgray') # noqa -> Color Name is spelled that way
+        axis.plot(*coord_hex, color='lightgray')  # noqa -> Color Name is spelled that way
     if fill_color:
         axis.fill(*coord_hex, color=fill_color)
     if debug:
-        axis.text(*screen_coords, f'{coords.q},{coords.r}', color='gray', ha='center', va='center', fontsize=5)
+        axis.text(*screen_coordinates, f'{coordinates.q},{coordinates.r}',
+                  color='gray', ha='center', va='center', fontsize=5)
 
 
-def find_solution(grid: Dict[HexCoordinates, Cell], grid_start: HexCoordinates, grid_exit: HexCoordinates) -> List[HexCoordinates]:
+def find_solution(grid: Grid, grid_start: HexCoordinates, grid_exit: HexCoordinates) -> List[HexCoordinates]:
     """
     Find a path from grid_start to grid_exit in a hexagonal grid maze.
 
@@ -344,13 +363,14 @@ def find_solution(grid: Dict[HexCoordinates, Cell], grid_start: HexCoordinates, 
     traversed = {grid_start}
 
     while stack:
-        hex_coords, path = stack.pop()
-        if hex_coords == grid_exit:
+        hex_coordinates, path = stack.pop()
+        if hex_coordinates == grid_exit:
             return path
 
         for hex_direction in HEX_DIRECTIONS:
-            hex_neighbour = HexCoordinates( hex_coords.q + hex_direction.q, hex_coords.r + hex_direction.r)
-            if hex_neighbour in grid and not grid[hex_neighbour].walls[(HEX_DIRECTIONS.index(hex_direction) + 3) % 6] and hex_neighbour not in traversed:
+            hex_neighbour = HexCoordinates(hex_coordinates.q + hex_direction.q, hex_coordinates.r + hex_direction.r)
+            if (hex_neighbour in grid and not grid[hex_neighbour].walls[(HEX_DIRECTIONS.index(hex_direction) + 3) % 6]
+                    and hex_neighbour not in traversed):
                 traversed.add(hex_neighbour)
                 stack.append((hex_neighbour, path + [hex_neighbour]))
 
@@ -368,7 +388,7 @@ def main():
     size = args.size
     num_mazes = args.num_mazes
     seed = args.seed
-    debug = args.debug #or True
+    debug = args.debug  # or True
 
     solutions = None
 
