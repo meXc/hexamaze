@@ -36,6 +36,24 @@ class RGBColor(NamedTuple):
     green: int
     blue: int
 
+@dataclass
+class Grid:
+    starts : Dict[int, HexCoordinates] = field(default_factory=dict)
+    exits : Dict[int, HexCoordinates] = field(default_factory=dict)
+    cells : Dict[HexCoordinates, Cell] = field(default_factory=dict)
+
+    def __getitem__(self, index):
+        return self.cells[index]
+    
+    def __setitem__(self, index, value):
+        self.cells[index] = value
+
+    def __iter__(self):
+        return iter(self.cells)
+    
+    def items(self):
+        return self.cells.items()
+
 # Hexagonal directions
 HEX_DIRECTIONS = [
     HexCoordinates(+1, 0), HexCoordinates(+1, -1), HexCoordinates(0, -1), HexCoordinates(-1, 0), HexCoordinates(-1, +1), HexCoordinates(0, +1)
@@ -65,13 +83,13 @@ def create_intertwined_mazes(size: int, num_mazes:int, seed: int=None):
     grid = initialize_hexagon_grid(size)
 
     # Define random starting points on the border of the maze
-    starts = []
-    for _ in range(num_mazes):
-        start_cell = get_random_border_point(grid, exclude_points=starts)
-        starts.append(start_cell)
+
+    for i in range(num_mazes):
+        start_cell = get_random_border_point(grid, exclude_points=grid.starts)
+        grid.starts[i] = start_cell
 
     # Initialize maze generators
-    mazes = [generate_maze(grid, start_cell, i) for i, start_cell in enumerate(starts)]
+    mazes = [generate_maze(grid, i) for i in range(num_mazes)]
 
     # Alternate steps between the mazes
     while mazes:
@@ -81,13 +99,7 @@ def create_intertwined_mazes(size: int, num_mazes:int, seed: int=None):
             except StopIteration:
                 mazes.remove(maze)
 
-    # Define random exit points within the sets, excluding start points
-    exits = []
-    for i in range(num_mazes):
-        exit_point = get_random_point_in_set(grid, exclude_points=[starts[i]], current_set=i)
-        exits.append(exit_point)
-
-    return grid, starts, exits
+    return grid
 
 
 def initialize_hexagon_grid(size: int) -> Dict[HexCoordinates, Cell]:
@@ -101,7 +113,7 @@ def initialize_hexagon_grid(size: int) -> Dict[HexCoordinates, Cell]:
     - A dictionary where each key is a tuple representing the coordinates (q, r) of a cell in the hexagonal grid,
       and each value is an instance of the Cell class.
     """
-    grid = {}
+    grid = Grid()
     for q in range(-size, size + 1):
         r1 = max(-size, -q - size)
         r2 = min(size, -q + size)
@@ -110,7 +122,7 @@ def initialize_hexagon_grid(size: int) -> Dict[HexCoordinates, Cell]:
     return grid
 
 
-def generate_maze(grid: Dict[HexCoordinates, Cell], start_cell: HexCoordinates, current_set_index: int) -> Generator[None, None, None]:
+def generate_maze(grid: Dict[HexCoordinates, Cell], current_set_index: int) -> Generator[None, None, None]:
     """
     Generate a maze on a hexagonal grid using depth-first search algorithm.
 
@@ -122,11 +134,14 @@ def generate_maze(grid: Dict[HexCoordinates, Cell], start_cell: HexCoordinates, 
     Yields:
     - None
     """
-    stack = [start_cell]
+    start_cell = grid.starts[current_set_index]
+    stack = [(start_cell, 0)]
     grid[start_cell].set = current_set_index
+    stack_max = (start_cell, 0)
+    
 
     while stack:
-        hex_coords = stack[-1]
+        hex_coords, depth = stack[-1]
         neighbors = []
         added = False
 
@@ -137,13 +152,19 @@ def generate_maze(grid: Dict[HexCoordinates, Cell], start_cell: HexCoordinates, 
 
         if neighbors:
             coords_neighbour, direction = random.choice(neighbors)
+            if not grid[coords_neighbour].set is None:
+                continue
+
             # Proceed with valid neighbor and update the walls and visited set
-            stack.append(coords_neighbour)
+            stack.append((coords_neighbour, depth + 1))
             grid[hex_coords].walls[direction] = False
             grid[coords_neighbour].walls[(direction + 3) % 6] = False  # Opposite wall
             grid[coords_neighbour].set = current_set_index
             added = True
         else:
+            if stack_max and depth > stack_max[1]:
+                stack_max = (hex_coords, depth)
+                grid.exits[current_set_index] = hex_coords
             stack.pop()
         if added:
             yield
@@ -229,7 +250,7 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
     return red + m, green + m, blue + m
 
 
-def plot_maze(grid, starts, exits, colors, solutions=None, debug=False):
+def plot_maze(grid, colors, solutions=None, debug=False):
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
 
@@ -264,8 +285,10 @@ def plot_maze(grid, starts, exits, colors, solutions=None, debug=False):
             axis.arrow(point_center.x + ((size / 2) * factor), point_center.y - ((size / 2) * factor), -size * factor, size * factor, color='grey')
 
     labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' # noqa -> Not a word
-    for i, (grid_start, grid_exit) in enumerate(zip(starts, exits)):
+    for i, grid_start in grid.starts.items():
         mark_point(ax, grid_start, f'{labels[i]}->', colors[i])
+
+    for i, grid_exit in grid.exits.items():
         mark_point(ax, grid_exit, f'->{labels[i]}', colors[i])
 
     # Draw solution paths
@@ -344,7 +367,7 @@ def main():
     size = args.size
     num_mazes = args.num_mazes
     seed = args.seed
-    debug = args.debug
+    debug = args.debug #or True
 
     solutions = None
 
@@ -353,10 +376,10 @@ def main():
         print(f'{seed=}')
 
     colors = get_complementary_colors(seed, num_mazes)
-    grid, starts, exits = create_intertwined_mazes(size, num_mazes, seed)
+    grid = create_intertwined_mazes(size, num_mazes, seed)
     if debug:
-        solutions = [find_solution(grid, grid_start, grid_exit) for grid_start, grid_exit in zip(starts, exits)]
-    plot_maze(grid, starts, exits, colors, solutions, debug)
+        solutions = [find_solution(grid, grid.starts[i], grid.exits[i]) for i in range(num_mazes)]
+    plot_maze(grid, colors, solutions, debug)
 
 
 if __name__ == "__main__":
