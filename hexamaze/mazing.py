@@ -1,3 +1,6 @@
+import configparser
+import os
+import subprocess
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, NamedTuple
 from collections.abc import Generator, ItemsView
@@ -183,7 +186,10 @@ def generate_maze(grid: Grid, current_set_index: int) -> Generator[None, None, N
     stack_max = (start_cell, 0)
 
     while stack:
-        stack_index = random.randrange(len(stack))
+        if bool(random.getrandbits(1)):
+            stack_index = random.randrange(len(stack))
+        else:
+            stack_index = len(stack) - 1
         hex_coordinates, depth = stack[stack_index]
         neighbors = []
         added = False
@@ -242,15 +248,15 @@ def get_random_border_point(grid: Grid, exclude_points: Optional[List[HexCoordin
     """
     if exclude_points is None:
         exclude_points = []
-    
+
     border_points = [point for point in grid if
                      any(HexCoordinates(point.q + direction.q, point.r + direction.r) not in grid
                          for direction in HEX_DIRECTIONS)]
-    
+
     point = None
     while not point or point in exclude_points:
         point = random.choice(border_points)
-    
+
     return point
 
 
@@ -270,9 +276,9 @@ def get_random_point_in_set(grid: Dict[HexCoordinates, Cell], exclude_points: Op
     """
     if exclude_points is None:
         exclude_points = []
-    
+
     points_in_set = [point for point in grid if grid[point].set == current_set and point not in exclude_points]
-    
+
     return random.choice(points_in_set) if points_in_set else None
 
 
@@ -326,7 +332,8 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
     return RGBColor(red + m, green + m, blue + m)
 
 
-def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False):
+def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False,
+              seed: Optional[int] = None, version: str = None, output_file: Optional[str] = None):
     """
     Visualizes a hexagonal grid maze using matplotlib, coloring cells based on their set,
     drawing walls, and optionally displaying solutions and debug information.
@@ -335,9 +342,16 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
     :param colors: A list of colors used to fill cells in the maze based on their set.
     :param solutions: Optional. A list of paths (sequences of coordinates) representing solutions through the maze.
     :param debug: Optional boolean flag to enable additional textual information on the plot for debugging purposes.
+    :param seed: Optional. The seed used to generate the maze, displayed on the plot.
+    :param version: Optional. The version of the HexaMaze to display on the title.
+    :param output_file: Optional. The file path where the plot should be saved. If not provided, the plot is displayed.
     """
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
+    if version is None:
+        plt.title(f"HexaMaze")
+    else:
+        plt.title(f"HexaMaze: {version}")
 
     size = 1
     for hex_coordinates, cell in grid.items():
@@ -395,7 +409,14 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
                 ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--')
 
     plt.axis('off')
-    plt.show()
+    if seed is not None:
+        plt.figtext(0.5, 0.01, f'Seed: {seed}', ha="center", fontsize=10,
+                    bbox={"facecolor": "white", "alpha": 0.5, "pad": 5})  # noqa -> facecolor is spelled that way
+    if output_file:
+        plt.savefig(output_file)
+        plt.close(fig)
+    else:
+        plt.show()
 
 
 def draw_hex(axis, coordinates: HexCoordinates, screen_coordinates: ScreenCoordinates,
@@ -459,12 +480,24 @@ def main():
     parser.add_argument("--num_mazes", type=int, default=3, help="Number of intertwined mazes")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for maze generation")
     parser.add_argument("--debug", action='store_true', help="Adds some debug output")
+    parser.add_argument("--output", type=str, default=None, help="Output filename for the maze image")
+    parser.add_argument("--version-Output", action='store_true', help="Outputs version.ini")
+
     args = parser.parse_args()
 
     size = args.size
     num_mazes = args.num_mazes
     seed = args.seed
     debug = args.debug  # or True
+    filename = args.output
+    version_file = "version.ini"
+    version_output = args.version_Output
+
+    write_version_ini(version_file)
+
+    version = get_version(version_file)
+    if version == "unknown":
+        version = None
 
     solutions = None
 
@@ -476,7 +509,43 @@ def main():
     grid = create_intertwined_mazes(size, num_mazes, seed)
     if debug:
         solutions = [find_solution(grid, grid.starts[i], grid.exits[i]) for i in range(num_mazes)]
-    plot_maze(grid, colors, solutions, debug)
+    plot_maze(grid, colors, solutions, debug, seed, version, filename)
+
+
+def get_version(version_file: str) -> str:
+    """
+    Retrieves the version number from a configuration file.
+
+    Args:
+        version_file (str): The path to the version configuration file.
+
+    Returns:
+        str: The version number.
+    """
+    if os.path.exists(version_file):
+        config = configparser.ConfigParser()
+        config.read(version_file)
+        return config.get('HexaMaze', 'version', fallback="0.1")
+    else:
+        return "0.1"
+
+
+def write_version_ini(version_file: str):
+    """
+    Writes the version information to a version.ini file to the given filename.
+
+    Args:
+    version_file (str): The path to the version configuration file.
+
+    """
+    try:
+        version = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], text=True).strip()
+    except subprocess.CalledProcessError:
+        version = "unknown"  # Fallback version if git command fails
+    config = configparser.ConfigParser()
+    config['HexaMaze'] = {'version': version}
+    with open(version_file, "w") as configfile:
+        config.write(configfile)
 
 
 if __name__ == "__main__":
