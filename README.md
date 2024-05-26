@@ -28,6 +28,7 @@ Run the script with Python. Here are some command-line options you can use:
 --seed: Provide a seed for the random number generator to reproduce specific mazes.
 --debug: Adds debug output to the generated maze image.
 --output: Specify the filename to save the generated maze image.
+--dark-mode: Welcome to the dark side.
 ```
 
 If --output is not set, it will open the immage inside a new window.
