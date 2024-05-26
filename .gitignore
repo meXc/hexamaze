@@ -1,2 +1,4 @@
 #Py-Cache should be saftly ignoreable
 *.pyc
+/build/**/*
+/dist/**/*
