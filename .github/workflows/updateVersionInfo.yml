@@ -29,6 +29,7 @@ jobs:
       - name: Running example generation
         run: |
           git fetch --tags
+          git pull  
           python ./hexamaze/mazing.py --seed 1323150628 --version-Output --output example.png
           python ./hexamaze/mazing.py --seed 1323150628 --debug --output example-debug.png
           git config --local user.name "github-actions[bot]"
