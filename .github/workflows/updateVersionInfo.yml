@@ -41,4 +41,4 @@ jobs:
           fi
           git commit --amend --no-edit
           git remote set-url origin https://git:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git push origin main
+          git push origin master
