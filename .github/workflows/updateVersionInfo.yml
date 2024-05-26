@@ -24,6 +24,7 @@ jobs:
 
       - name: Running example generation
         run: |
+          git checkout origin/master
           git fetch --tags
           python ./hexamaze/mazing.py --seed 1323150628 --version-Output --output example.png
           python ./hexamaze/mazing.py --seed 1323150628 --debug --output example-debug.png
