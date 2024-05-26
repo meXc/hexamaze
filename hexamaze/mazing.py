@@ -24,16 +24,38 @@ class Cell:
 
 
 class HexCoordinates(NamedTuple):
+    """
+    Represents coordinates on a hexagonal grid using axial coordinates (q and r).
+    
+    Fields:
+    q (int): Represents the horizontal coordinate on the hexagonal grid.
+    r (int): Represents the diagonal coordinate on the hexagonal grid, combining vertical and horizontal shifts.
+    """
     q: int
     r: int
 
 
 class ScreenCoordinates(NamedTuple):
+    """
+    Represents the x and y coordinates on a screen or a graphical display.
+    
+    Attributes:
+    x (int): The x-coordinate on the screen.
+    y (int): The y-coordinate on the screen.
+    """
     x: int
     y: int
 
 
 class RGBColor(NamedTuple):
+    """
+    Represents a color in RGB format using red, green, and blue components.
+    
+    Fields:
+    red: int - An integer representing the red component of the color.
+    green: int - An integer representing the green component of the color.
+    blue: int - An integer representing the blue component of the color.
+    """
     red: int
     green: int
     blue: int
@@ -41,20 +63,36 @@ class RGBColor(NamedTuple):
 
 @dataclass
 class Grid:
+    """
+    The Grid class manages a hexagonal grid of cells, each represented by a Cell object,
+    with specific start and exit points defined by HexCoordinates.
+    """
     starts: Dict[int, HexCoordinates] = field(default_factory=dict)
     exits: Dict[int, HexCoordinates] = field(default_factory=dict)
     cells: Dict[HexCoordinates, Cell] = field(default_factory=dict)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: HexCoordinates) -> Cell:
+        """
+        Allows access to a cell using its coordinates.
+        """
         return self.cells[index]
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: HexCoordinates, value: Cell) -> None:
+        """
+        Sets a cell at the specified coordinates.
+        """
         self.cells[index] = value
 
     def __iter__(self):
+        """
+        Returns an iterator over the cell coordinates.
+        """
         return iter(self.cells)
 
-    def items(self):
+    def items(self) -> Dict[HexCoordinates, Cell]:
+        """
+        Returns all coordinate-cell pairs in the grid.
+        """
         return self.cells.items()
 
 
@@ -67,25 +105,23 @@ HEX_DIRECTIONS = [
 # Colors for sides
 SIDE_COLORS = ['Blue', 'Green', 'Orange', 'Purple', 'Pink', 'Yellow']
 
-"""
-Create a set of intertwined mazes on a hexagonal grid.
-
-Args:
-- size: An integer defining the radius of the hexagon grid.
-- num_mazes: An integer specifying the number of mazes to generate.
-- seed: An optional integer seed for random number generation.
-
-Returns:
-- A tuple containing:
-    - A dictionary representing the hexagonal grid with maze cells.
-    - A list of starting points for each maze.
-    - A list of exit points for each maze.
-"""
-
 
 def create_intertwined_mazes(size: int, num_mazes: int, seed: int = None):
+    """
+    Create a set of intertwined mazes on a hexagonal grid.
+
+    Args:
+        size (int): The radius of the hexagonal grid.
+        num_mazes (int): The number of mazes to generate.
+        seed (int, optional): The seed for random number generation. Defaults to None.
+
+    Returns:
+        Grid: A hexagonal grid with intertwined mazes generated on it.
+    """
     if seed is not None:
         random.seed(seed)
+    else:
+        random.seed()
 
     grid = initialize_hexagon_grid(size)
 
@@ -193,38 +229,65 @@ def is_valid_move(hex_coordinates: HexCoordinates, grid: Grid) -> bool:
     return hex_coordinates in grid and (grid[hex_coordinates].set is None)
 
 
-def get_random_border_point(grid, exclude_points=None):
-    if not exclude_points:
-        exclude_points = []
-    border_points = [point for point in grid if
-                     len([True for hex_direction in HEX_DIRECTIONS if
-                          HexCoordinates(point.q + hex_direction.q, point.r + hex_direction.r) not in grid]) > 0]
-    point = None
+def get_random_border_point(grid: List[HexCoordinates], exclude_points: Optional[List[HexCoordinates]] = None) -> HexCoordinates:
+    """
+    Selects a random point from the border of a hexagonal grid, ensuring it is not in a list of excluded points.
 
+    Args:
+        grid (List[HexCoordinates]): A list of HexCoordinates representing all points in a hexagonal grid.
+        exclude_points (Optional[List[HexCoordinates]]): An optional list of HexCoordinates to exclude from selection.
+
+    Returns:
+        HexCoordinates: A randomly selected border point that is not in the exclude_points.
+    """
+    if exclude_points is None:
+        exclude_points = []
+    
+    border_points = [point for point in grid if any(HexCoordinates(point.q + direction.q, point.r + direction.r) not in grid for direction in HEX_DIRECTIONS)]
+    
+    point = None
     while not point or point in exclude_points:
         point = random.choice(border_points)
+    
     return point
 
 
-def get_random_point_in_set(grid, exclude_points=None, current_set=None):
-    if not exclude_points:
+def get_random_point_in_set(grid: Dict[HexCoordinates, Cell], exclude_points: Optional[List[HexCoordinates]] = None, current_set: Optional[str] = None) -> Optional[HexCoordinates]:
+    """
+    Selects a random point from a grid that belongs to a specified set and is not in an excluded list of points.
+
+    Args:
+        grid (Dict[HexCoordinates, Cell]): A dictionary mapping HexCoordinates to Cell objects.
+        exclude_points (Optional[List[HexCoordinates]]): An optional list of HexCoordinates to exclude from selection.
+        current_set (Optional[str]): The identifier of the set from which a random point is to be selected.
+
+    Returns:
+        Optional[HexCoordinates]: A randomly selected HexCoordinates from the specified set that is not in the excluded list, or None if no such point exists.
+    """
+    if exclude_points is None:
         exclude_points = []
+    
     points_in_set = [point for point in grid if grid[point].set == current_set and point not in exclude_points]
+    
     return random.choice(points_in_set) if points_in_set else None
 
 
-def get_complementary_colors(seed: int, num_colors: int) -> List[RGBColor]:
+def get_complementary_colors(num_colors: int, seed: int = None) -> List[RGBColor]:
     """
     Generates a list of RGB color values that are evenly spaced around the color wheel.
 
     Args:
-        seed (int): An integer to initialize the random number generator for reproducibility.
         num_colors (int): The number of complementary colors to generate.
+        seed (int, optional): An integer to initialize the random number generator for reproducibility.
 
     Returns:
         List[RGBColor]: A list of RGB color tuples, each representing a complementary color.
     """
-    random.seed(seed)
+    if seed is not None:
+        random.seed(seed)
+    else:
+        random.seed()
+
     hue_start = random.randint(0, 360)
     saturation, lightness = .70, .50
     colors = []
@@ -259,7 +322,16 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
     return RGBColor(red + m, green + m, blue + m)
 
 
-def plot_maze(grid, colors, solutions=None, debug=False):
+def plot_maze(grid: dict, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False):
+    """
+    Visualizes a hexagonal grid maze using matplotlib, coloring cells based on their set,
+    drawing walls, and optionally displaying solutions and debug information.
+
+    :param grid: A dictionary where keys are hexagonal coordinates and values are cell objects containing maze information.
+    :param colors: A list of colors used to fill cells in the maze based on their set.
+    :param solutions: Optional. A list of paths (sequences of coordinates) representing solutions through the maze.
+    :param debug: Optional boolean flag to enable additional textual information on the plot for debugging purposes.
+    """
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
 
@@ -396,7 +468,7 @@ def main():
         seed = random.randrange(0, 2 ** 32)
         print(f'{seed=}')
 
-    colors = get_complementary_colors(seed, num_mazes)
+    colors = get_complementary_colors(num_mazes, seed)
     grid = create_intertwined_mazes(size, num_mazes, seed)
     if debug:
         solutions = [find_solution(grid, grid.starts[i], grid.exits[i]) for i in range(num_mazes)]
