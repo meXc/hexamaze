@@ -334,7 +334,8 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
 
 
 def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False,
-              seed: Optional[int] = None, version: str = None, output_file: Optional[str] = None):
+              seed: Optional[int] = None, version: str = None, output_file: Optional[str] = None,
+              dark_mode: bool= False):
     """
     Visualizes a hexagonal grid maze using matplotlib, coloring cells based on their set,
     drawing walls, and optionally displaying solutions and debug information.
@@ -346,13 +347,23 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
     :param seed: Optional. The seed used to generate the maze, displayed on the plot.
     :param version: Optional. The version of the HexaMaze to display on the title.
     :param output_file: Optional. The file path where the plot should be saved. If not provided, the plot is displayed.
+    :param dark_mode: Optional. Activates the Dark Side
     """
+    if dark_mode:
+        foreground = 'linen'
+        background = 'black'
+    else:
+        foreground = 'black'
+        background = 'white'
+
     fig, ax = plt.subplots()
     ax.set_aspect('equal')
     if version is None:
         plt.title(f"HexaMaze")
     else:
-        plt.title(f"HexaMaze: {version}")
+        plt.title(f"HexaMaze: {version}", color=foreground)
+
+    fig.set_facecolor(background)
 
     size = 1
     for hex_coordinates, cell in grid.items():
@@ -375,7 +386,7 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
                 if SPACING > 1:
                     ax.plot([x0, x1], [y0, y1], color=SIDE_COLORS[direction])
                 else:
-                    ax.plot([x0, x1], [y0, y1], color='black')
+                    ax.plot([x0, x1], [y0, y1], color="black")
 
     # Mark entrances and exits
     def mark_point(axis, point, label, color):
@@ -383,14 +394,14 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
                                          - size * np.sqrt(3) * (point.r + point.q / 2) * SPACING)
         factor = .8
         if debug:
-            axis.text(*point_center, label, color='gray', ha='center', va='center', fontsize=7,
+            axis.text(*point_center, label, color=foreground, ha='center', va='center', fontsize=7,
                       fontweight='bold',
-                      bbox=dict(facecolor=color, edgecolor='black', boxstyle='round,pad=0.3'))
+                      bbox=dict(facecolor=color, edgecolor=foreground, boxstyle='round,pad=0.3'))
         else:
             axis.arrow(point_center.x - ((size / 2) * factor), point_center.y - ((size / 2) * factor), size * factor,
-                       size * factor, color='grey')
+                       size * factor, color=background)
             axis.arrow(point_center.x + ((size / 2) * factor), point_center.y - ((size / 2) * factor), -size * factor,
-                       size * factor, color='grey')
+                       size * factor, color=background)
 
     labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # noqa -> Not a word
     for i, grid_start in grid.starts.items():
@@ -407,12 +418,11 @@ def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]
                 y0 = - size * np.sqrt(3) * (hex_coordinates.r + hex_coordinates.q / 2) * SPACING
                 x1 = size * 3 / 2 * hex_next.q * SPACING
                 y1 = - size * np.sqrt(3) * (hex_next.r + hex_next.q / 2) * SPACING
-                ax.plot([x0, x1], [y0, y1], color="grey", linestyle='--')
+                ax.plot([x0, x1], [y0, y1], color=background, linestyle='--')
 
     plt.axis('off')
     if seed is not None:
-        plt.figtext(0.5, 0.01, f'Seed: {seed}', ha="center", fontsize=10,
-                    bbox={"facecolor": "white", "alpha": 0.5, "pad": 5})  # noqa -> facecolor is spelled that way
+        plt.figtext(0.5, 0.01, f'Seed: {seed}', ha="center", fontsize=10, color=foreground)
     if output_file:
         plt.savefig(output_file)
         plt.close(fig)
@@ -483,6 +493,7 @@ def main():
     parser.add_argument("--debug", action='store_true', help="Adds some debug output")
     parser.add_argument("--output", type=str, default=None, help="Output filename for the maze image")
     parser.add_argument("--version-Output", action='store_true', help="Outputs version.ini")
+    parser.add_argument("--dark-mode", action='store_true', help="Activates Dark Mode")
 
     args = parser.parse_args()
 
@@ -493,6 +504,7 @@ def main():
     filename = args.output
     version_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "version.ini")
     version_output = args.version_Output
+    dark = args.dark_mode
 
     if getattr(sys, 'frozen', False):
         image = os.path.join(sys._MEIPASS, r"hexamaze\version.ini")
@@ -513,7 +525,7 @@ def main():
     grid = create_intertwined_mazes(size, num_mazes, seed)
     if debug:
         solutions = [find_solution(grid, grid.starts[i], grid.exits[i]) for i in range(num_mazes)]
-    plot_maze(grid, colors, solutions, debug, seed, version, filename)
+    plot_maze(grid, colors, solutions, debug, seed, version, filename, dark)
 
 
 def get_version(version_file: str) -> str:
