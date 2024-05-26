@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, NamedTuple
-from collections.abc import Generator
+from collections.abc import Generator, ItemsView
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -43,8 +43,8 @@ class ScreenCoordinates(NamedTuple):
     x (int): The x-coordinate on the screen.
     y (int): The y-coordinate on the screen.
     """
-    x: int
-    y: int
+    x: float
+    y: float
 
 
 class RGBColor(NamedTuple):
@@ -89,7 +89,7 @@ class Grid:
         """
         return iter(self.cells)
 
-    def items(self) -> Dict[HexCoordinates, Cell]:
+    def items(self) -> ItemsView[HexCoordinates, Cell]:
         """
         Returns all coordinate-cell pairs in the grid.
         """
@@ -128,7 +128,7 @@ def create_intertwined_mazes(size: int, num_mazes: int, seed: int = None):
     # Define random starting points on the border of the maze
 
     for i in range(num_mazes):
-        start_cell = get_random_border_point(grid, exclude_points=grid.starts)
+        start_cell = get_random_border_point(grid, exclude_points=list(grid.starts.values()))
         grid.starts[i] = start_cell
 
     # Initialize maze generators
@@ -229,7 +229,7 @@ def is_valid_move(hex_coordinates: HexCoordinates, grid: Grid) -> bool:
     return hex_coordinates in grid and (grid[hex_coordinates].set is None)
 
 
-def get_random_border_point(grid: List[HexCoordinates], exclude_points: Optional[List[HexCoordinates]] = None) -> HexCoordinates:
+def get_random_border_point(grid: Grid, exclude_points: Optional[List[HexCoordinates]] = None) -> HexCoordinates:
     """
     Selects a random point from the border of a hexagonal grid, ensuring it is not in a list of excluded points.
 
@@ -243,7 +243,9 @@ def get_random_border_point(grid: List[HexCoordinates], exclude_points: Optional
     if exclude_points is None:
         exclude_points = []
     
-    border_points = [point for point in grid if any(HexCoordinates(point.q + direction.q, point.r + direction.r) not in grid for direction in HEX_DIRECTIONS)]
+    border_points = [point for point in grid if
+                     any(HexCoordinates(point.q + direction.q, point.r + direction.r) not in grid
+                         for direction in HEX_DIRECTIONS)]
     
     point = None
     while not point or point in exclude_points:
@@ -252,7 +254,8 @@ def get_random_border_point(grid: List[HexCoordinates], exclude_points: Optional
     return point
 
 
-def get_random_point_in_set(grid: Dict[HexCoordinates, Cell], exclude_points: Optional[List[HexCoordinates]] = None, current_set: Optional[str] = None) -> Optional[HexCoordinates]:
+def get_random_point_in_set(grid: Dict[HexCoordinates, Cell], exclude_points: Optional[List[HexCoordinates]] = None,
+                            current_set: Optional[str] = None) -> Optional[HexCoordinates]:
     """
     Selects a random point from a grid that belongs to a specified set and is not in an excluded list of points.
 
@@ -262,7 +265,8 @@ def get_random_point_in_set(grid: Dict[HexCoordinates, Cell], exclude_points: Op
         current_set (Optional[str]): The identifier of the set from which a random point is to be selected.
 
     Returns:
-        Optional[HexCoordinates]: A randomly selected HexCoordinates from the specified set that is not in the excluded list, or None if no such point exists.
+        Optional[HexCoordinates]: A randomly selected HexCoordinates from the specified set that is not in the excluded
+        list, or None if no such point exists.
     """
     if exclude_points is None:
         exclude_points = []
@@ -322,12 +326,12 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
     return RGBColor(red + m, green + m, blue + m)
 
 
-def plot_maze(grid: dict, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False):
+def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False):
     """
     Visualizes a hexagonal grid maze using matplotlib, coloring cells based on their set,
     drawing walls, and optionally displaying solutions and debug information.
 
-    :param grid: A dictionary where keys are hexagonal coordinates and values are cell objects containing maze information.
+    :param grid: A Grid where keys are hexagonal coordinates and values are cell objects containing maze information.
     :param colors: A list of colors used to fill cells in the maze based on their set.
     :param solutions: Optional. A list of paths (sequences of coordinates) representing solutions through the maze.
     :param debug: Optional boolean flag to enable additional textual information on the plot for debugging purposes.
