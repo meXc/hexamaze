@@ -490,7 +490,7 @@ def main():
     seed = args.seed
     debug = args.debug  # or True
     filename = args.output
-    version_file = "version.ini"
+    version_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "version.ini")
     version_output = args.version_Output
 
     write_version_ini(version_file)
