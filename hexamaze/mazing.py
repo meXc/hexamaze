@@ -1,6 +1,7 @@
 import configparser
 import os
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, NamedTuple
 from collections.abc import Generator, ItemsView
@@ -492,6 +493,9 @@ def main():
     filename = args.output
     version_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "version.ini")
     version_output = args.version_Output
+
+    if getattr(sys, 'frozen', False):
+        image = os.path.join(sys._MEIPASS, r"hexamaze\version.ini")
 
     write_version_ini(version_file)
 
