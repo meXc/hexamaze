@@ -335,7 +335,7 @@ def hsl_to_rgb(hue: float, saturation: float, lightness: float) -> RGBColor:
 
 def plot_maze(grid: Grid, colors: List[RGBColor], solutions: Optional[List[List]], debug: bool = False,
               seed: Optional[int] = None, version: str = None, output_file: Optional[str] = None,
-              dark_mode: bool= False):
+              dark_mode: bool = False):
     """
     Visualizes a hexagonal grid maze using matplotlib, coloring cells based on their set,
     drawing walls, and optionally displaying solutions and debug information.
@@ -492,24 +492,29 @@ def main():
     parser.add_argument("--seed", type=int, default=None, help="Random seed for maze generation")
     parser.add_argument("--debug", action='store_true', help="Adds some debug output")
     parser.add_argument("--output", type=str, default=None, help="Output filename for the maze image")
-    parser.add_argument("--version-Output", action='store_true', help="Outputs version.ini")
     parser.add_argument("--dark-mode", action='store_true', help="Activates Dark Mode")
+
+    if not getattr(sys, 'frozen', False):
+        parser.add_argument("--version-Output", action='store_true', help="Outputs version.ini")
 
     args = parser.parse_args()
 
+    version_output = False
     size = args.size
     num_mazes = args.num_mazes
     seed = args.seed
     debug = args.debug  # or True
     filename = args.output
     version_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "version.ini")
-    version_output = args.version_Output
+    if not getattr(sys, 'frozen', False):
+        version_output = args.version_Output
     dark = args.dark_mode
 
     if getattr(sys, 'frozen', False):
-        image = os.path.join(sys._MEIPASS, r"hexamaze\version.ini")
+        version_file = os.path.join(sys._MEIPASS, r"hexamaze\version.ini")  # pylint: disable=protected-access
 
-    write_version_ini(version_file)
+    if version_output:
+        write_version_ini(version_file)
 
     version = get_version(version_file)
     if version == "unknown":
