@@ -24,7 +24,7 @@ class Cell:
         set (Optional[str]): An optional identifier to group cells.
     """
     walls: List[bool] = field(default_factory=lambda: [True] * 6)
-    set: Optional[str] = None
+    set: Optional[int] = None
 
 
 class HexCoordinates(NamedTuple):
